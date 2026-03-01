@@ -10,8 +10,6 @@ import pydeck as pdk
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import matplotlib.pyplot as mpld3
-import streamlit.components.v1 as components
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -105,33 +103,6 @@ selected_column = {'Mobility for 25th percentile':'kr26_p25_coef',
 
 variable_column = selected_column[variable_choice]
 
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-
-county_data.plot(
-    color='lightgrey',   
-    ax=ax)
-
-sample_df.plot(
-    column=variable_column,              
-    linewidth=0.2,           
-    edgecolor='0.5',          
-    legend=True,              
-    ax=ax,
-    zorder=2,
-    cmap='magma',
-    )
-
-cbar_ax = fig.axes[-1]
-cbar_ax.set_title(f'{variable_choice}', fontsize=10)
-ax.set_position([0.03, 0.08, 0.82, 0.85])
-cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
-
-ax.set_title(f'County-Level {variable_choice}', fontsize=24)
-ax.axis('off')  
-
-ax.set_axis_off()
-st.pyplot(fig) 
-
 min_val = sample_df[variable_column].min()
 max_val = sample_df[variable_column].max()
 
@@ -146,7 +117,7 @@ def get_color(x, min_val, max_val, colormap):
     rgba_color_int = [int(x * 255) for x in rgba_color_float]
     return rgba_color_int
 
-df['color_rbga'] = df[variable_column].apply(lambda x: get_color(x, min_val, max_val, cmap))
+df['color_rgba'] = df[variable_column].apply(lambda x: get_color(x, min_val, max_val, cmap))
 
 layer = pdk.Layer(
     'GeoJsonLayer',
@@ -168,7 +139,7 @@ deck = pdk.Deck(
     layers=[layer],
     initial_view_state=view_state,
     tooltip={
-        "html": "<b>County:</b> {County Name}<br/>Value: {variable_column}"
+        "html": "<b>County:</b> {County Name}<br/>Value:  {" + variable_column + "}"
     }
 )
 
