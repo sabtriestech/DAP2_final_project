@@ -1,4 +1,4 @@
-name: fire_analysis
+name: mobility_crime_analysis
 channels:
   - conda-forge
 dependencies:
@@ -6,4 +6,9 @@ dependencies:
   - pandas
   - geopandas
   - matplotlib
-  - shapely
+  - pydeck
+  - streamlit
+  - numpy
+
+  
+  
