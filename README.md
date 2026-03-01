@@ -16,6 +16,7 @@ The original data sets can be found at the following links and we last accessed 
    - Opportunity Insights Mobility Data: https://opportunityinsights.org/data/?geographic_level=0&topic=0&paper_id=606#resource-listing
    - QCEW on Employment and Industry: https://www.bls.gov/cew/downloadable-data-files.htm
    - US Census data on population: https://www.census.gov/data/datasets/time-series/demo/popest/intercensal-2000-2010-counties.html
+   - US Census shapefiles: https://www.census.gov/geographies/mapping-files/2000/geo/tiger-line-file.html
    - FBI Data on Crime comes from xlsx sheet from each year from teh Crime in the U.S Report. Most years county-level data was table 10.
         -  As an example, the data for 2011 can be found Here: https://ucr.fbi.gov/crime-in-the-u.s/2011/crime-in-the-u.s.-2011/offenses-known-to-law-enforcement/offenses-known-to-law-enforcement
 
