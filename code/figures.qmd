@@ -3,5 +3,445 @@ title: "Final Project Figures"
 format: pdf
 ---
 
-```{}
+Setup directory and data:
 
+```{python}
+
+import pandas as pd
+import altair as alt
+import geopandas as gpd
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).parent.parent
+SAVE_DIR = os.path.join(BASE_DIR, 'figures')
+
+os.chdir(BASE_DIR)
+
+full_data = pd.read_csv('data\derived_data\Full Data.csv')
+full_data = full_data[full_data['Ownership'] != 'Total Covered']
+```
+
+Create a list of variable to loop over:
+
+```{python}
+
+vars = [
+      'Gini (Standardized)',
+      'Median House Price for Below-Median Income Families (Standardized)',
+      'Poverty Rate (Standardized)', 
+      'Murder and nonnegligent manslaughter_rate',
+      'Income Segregation (Standardized)',
+      'Location Affordability of Very Low-Income Individual',
+      'School Expenditure per Student (Standardized)',
+      'Labor Force Participation (Standardized)',
+      'Migration Outlflow Rate (Standardized)',
+      'Fraction Religious (Standardized)',
+      'Fraction of Children with Single Mothers (Standardized)',
+      'Violent crime_rate',
+      'Property crime_rate',
+      'Racial Segregation (Standardized)',
+      'Number of Colleges per Capita (Standardized)',
+      'High School Dropout Rate (Income adjusted) (Standardized)',
+      'College Graduation Rate (Income Adjusted) (Standardized)',
+      'Teenage (14-16) Labor Force Participation (Standardized)',
+      'Median House Rent for Below-Median Income Families (Standardized)',
+      'Unemployment Rate (Standardized)',
+      'Fraction of Adults Married (Standardized)'
+]
+
+county_summary = full_data.groupby('County FIPS 2000').agg({
+    'Local Wage Share': lambda x: 1 / (x**2).sum(),
+    'Gini (Standardized)': 'first',
+    'Median House Price for Below-Median Income Families (Standardized)': 'first',
+    'Poverty Rate (Standardized)': 'first', 
+    'Murder and nonnegligent manslaughter_rate': 'first',
+    'Income Segregation (Standardized)': 'first',
+    'Location Affordability of Very Low-Income Individual': 'first',
+    'School Expenditure per Student (Standardized)': 'first',
+    'Labor Force Participation (Standardized)': 'first',
+    'Migration Outlflow Rate (Standardized)': 'first',
+    'Fraction Religious (Standardized)': 'first',
+    'Fraction of Children with Single Mothers (Standardized)': 'first',
+    'Violent crime_rate': 'first',
+    'Racial Segregation (Standardized)': 'first',
+    'Number of Colleges per Capita (Standardized)': 'first',
+    'High School Dropout Rate (Income adjusted) (Standardized)': 'first',
+    'College Graduation Rate (Income Adjusted) (Standardized)': 'first',
+    'Teenage (14-16) Labor Force Participation (Standardized)': 'first',
+    'Median House Rent for Below-Median Income Families (Standardized)': 'first',
+    'Unemployment Rate (Standardized)': 'first',
+    'Fraction of Adults Married (Standardized)': 'first',
+    'kr26_p25_coef': 'first',
+    'Property crime_rate': 'first',
+    'Household Income per Capita': 'first',
+    'kr26_p75_coef': 'first',
+    'Median House Price for Above-Median Income Families (Standardized)': 'first'
+})
+
+county_summary = county_summary.rename(columns={
+    'Local Wage Share': 'Inverse HHI'
+})
+
+```
+
+Now, calculate correlation of our variables with Inverse HHI
+```{python}
+
+outcome = 'Inverse HHI'
+results = []
+
+for var in vars:
+
+    clean_data = county_summary[[var, outcome]].dropna()
+
+    #correlation for easy interpretability (in range [-1, 1])
+    correlation = clean_data[var].corr(clean_data[outcome])
+
+    #run regression on outcome and HHI to get relationship, p-values
+    from scipy import stats
+    slope, intercept, r_value, p_value, std_err = stats.linregress(
+        clean_data[var],
+        clean_data[outcome]
+          )
+
+    n = len(clean_data)
+    t_critical = stats.t.ppf(0.975, n-2)
+    ci_lower = slope - (t_critical * std_err)
+    ci_upper = slope + (t_critical * std_err)    
+
+    mean_concentration = clean_data[outcome].mean()
+
+    #get SD of given variable
+    var_std = clean_data[var].std()
+
+    #calculate effect of 1 SD increase on HHI, with 95% CIs
+    effect_per_sd = slope * var_std
+    effect_ci_lower = ci_lower * var_std
+    effect_ci_upper = ci_upper * var_std
+
+    #convert to percent
+    pct_effect = (effect_per_sd / mean_concentration) * 100
+    pct_ci_lower = (effect_ci_lower / mean_concentration) * 100
+    pct_ci_upper = (effect_ci_upper / mean_concentration) * 100
+    
+    results.append({
+              'Variable': var,
+              'Effect_per_SD': effect_per_sd,
+              'Pct_Change': pct_effect,
+              'Correlation': correlation,
+              'CI_lower': pct_ci_lower,
+              'CI_upper': pct_ci_upper,
+              'P_value': p_value,
+              'Significant': p_value < 0.05
+          })
+
+results_df = pd.DataFrame(results)
+
+```
+
+Clean up results:
+
+```{python}
+
+#filter for statistically significant relationships
+results_signif = results_df[results_df['Significant'] == True]
+
+#clean up variable names for plotting
+results_signif['Variable'] = results_signif['Variable'].str.replace(' (Standardized)', '', regex=False)
+results_signif['Variable'] = results_signif['Variable'].str.replace('(Income adjusted)', '', regex=False)
+results_signif['Variable'] = results_signif['Variable'].str.replace('Teenage (14-16) Labor Force Participation', 'Teen (14-16) LFP', regex=False)
+results_signif['Variable'] = results_signif['Variable'].str.replace(' for Below-Median Income Families', ', Low-Income', regex=False)
+results_signif['Variable'] = results_signif['Variable'].str.replace(' of Very Low-Income Individual', ', Very Low-Income', regex=False)
+
+#convert correlation to string for plotting
+results_signif['Correlation'] = results_signif['Correlation'].astype(str)
+
+#sort by biggest change to avoid "sort=" arg in altair - it breaks text
+results_signif = results_signif.sort_values('Pct_Change', ascending=False)
+ordered_vars = results_signif['Variable'].tolist()
+
+```
+
+Plot as a points + error bars with correlation coefficients on a column to the right:
+
+```{python}
+
+#base chart - diamonds showing relationship
+points = alt.Chart(results_signif).mark_point(
+    color="#40248c",
+    shape='diamond',
+    size=150,
+    opacity=1,
+    filled=True
+    ).encode(
+    x=alt.X('Pct_Change:Q',
+            title='Change in Wage Concentration (%)',
+            scale=alt.Scale(domain=[-20, 35])),  
+    y=alt.Y('Variable:O',
+            scale=alt.Scale(domain=ordered_vars),
+            title='Crime and Mobility Measures')
+).properties(height=500, width=800,
+             title={
+        "text": "Association Between 1 SD Increase of Economic Measures with Wage Concentration",
+        "subtitle": "With Associated Correlation Coefficients and Confidence Intervals",
+        })
+
+#confidence intervals
+errorbars = alt.Chart(results_signif).mark_errorbar(
+    ticks=True,
+    size=10,
+    color='black'
+).encode(
+    x=alt.X('CI_lower:Q', title=''),
+    x2='CI_upper:Q',
+    y=alt.Y('Variable:O',
+    scale=alt.Scale(domain=ordered_vars))
+)
+
+#correlation coefficent to the right
+corr_text = alt.Chart(results_signif).mark_text(
+).encode(
+    x=alt.value(770),
+    y=alt.Y('Variable:O',
+            scale=alt.Scale(domain=ordered_vars),
+            title=None),
+    text=alt.Text('Correlation:Q', format='.2f'))
+
+#zero line to delineate positive and negative relationships
+zero_line_x = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(
+    strokeDash=[5, 5],
+    color='black'
+).encode(x='x:Q')
+
+#put layers together
+wage_chart = (errorbars + points + zero_line_x + corr_text).configure_view(clip=False)
+
+#save to figures folder
+wage_chart.save(os.path.join(SAVE_DIR, 'Wage Concentration Chart.png'), scale_factor=2)
+
+```
+
+Aggregate data for bar chart:
+
+```{python}
+county_summary['housing_quint_high'] = pd.qcut(county_summary['Median House Price for Above-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
+
+county_summary['housing_quint_low'] = pd.qcut(county_summary['Median House Price for Below-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
+
+high_df = county_summary.groupby('housing_quint_high').agg({'kr26_p75_coef':
+  'mean'}).reset_index()
+
+high_df['Income'] = '75th Percentile'
+
+high_df.rename(columns={'housing_quint_high': 'quintile', 'kr26_p75_coef':
+   'mobility'}, inplace=True)
+
+low_df = county_summary.groupby('housing_quint_low').agg({'kr26_p25_coef':
+   'mean'}).reset_index()
+low_df['Income'] = '25th Percentile'
+low_df.rename(columns={'housing_quint_low': 'quintile', 'kr26_p25_coef':
+  'mobility'}, inplace=True)
+
+combined_df = pd.concat([high_df, low_df])
+```
+
+Plot mobility by housing prices, shared x-axis for different income families:
+
+```{python}
+chart = alt.Chart(combined_df).mark_bar().encode(
+      x=alt.X('quintile:O', title='Housing Price Quintile'),
+      y=alt.Y('mobility:Q', title='Mean Mobility Coefficient (Gain in Percentile)'),
+      color=alt.Color('Income:N', scale=alt.Scale(range=['#46327E', '#B63679']), title='Parent Income'),
+      xOffset='Income:N'
+  ).properties(
+      width=400,
+      height=300,
+      title={
+        'text':'Mean Mobility by Housing Prices, Below- and Above-Median Income Families',
+        'subtitle': 'As Measured by Child Rank in National Income Distribution at Age 26 '
+  })
+
+zero_line_y = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
+    strokeDash=[5, 5],
+    color='black'
+).encode(y='y:Q')
+
+final_bar = (chart + zero_line_y).configure_view(clip=False)
+
+final_bar.save(os.path.join(SAVE_DIR, 'Mobility by Housing Chart.png'), scale_factor=2)
+```
+```{python}
+# set up
+import geopandas as gpd
+from pathlib import Path
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import altair as alt
+
+BASE_DIR = Path(__file__).parent.parent
+BASE_DIR
+SAVE_DIR = os.path.join(BASE_DIR, 'figures')
+os.chdir(BASE_DIR)
+
+data_w_geo= gpd.read_file(os.path.join("data\derived_data\Full Data with Geography.gpkg"))
+
+county_map = gpd.read_file(os.path.join('data\Shapefiles\County\co99_d00.shp'))
+
+#drop Alaska and Hawaii
+county_map = county_map[county_map['STATE'] != '02']
+county_map = county_map[county_map['STATE'] != '15']
+
+#want to collapse to single row per county
+data_grouped_geo = data_w_geo[
+    (data_w_geo["Ownership"] == "Private") &
+    (data_w_geo["Industry"] == "Total, all industries")]
+
+data_grouped_geo = data_grouped_geo[data_grouped_geo["state_name"]!="Hawaii"]
+
+#want to winsorize property crime to display better
+pctile95 = data_grouped_geo['Property crime_rate'].quantile(0.95)
+data_grouped_geo["Property crime_rate_winsor"] = np.where(data_grouped_geo["Property crime_rate"] > pctile95, 
+                                                     pctile95, 
+                                                     data_grouped_geo["Property crime_rate"]) 
+pctile95 = data_grouped_geo['Violent crime_rate'].quantile(0.95)
+data_grouped_geo["Violent crime_rate_winsor"] = np.where(data_grouped_geo["Violent crime_rate"] > pctile95, 
+                                                     pctile95, 
+                                                     data_grouped_geo["Violent crime_rate"])                                                      
+```
+
+
+```{python}
+fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+
+county_map.plot(
+    color='lightgrey',   
+    ax=ax)
+
+data_grouped_geo.plot(
+    column='Property crime_rate_winsor',              
+    linewidth=0.2,           
+    edgecolor='0.5',          
+    legend=True,              
+    ax=ax,
+    zorder=2,
+    cmap='magma'
+    )
+
+cbar_ax = fig.axes[-1]
+cbar_ax.set_title('Property Crime Rate\n(per 1,000 residents)', fontsize=10)
+ax.set_position([0.03, 0.08, 0.82, 0.85])
+cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
+
+ax.set_title('County-Level Property Crime Rates', fontsize=24)
+ax.axis('off')  
+
+ax.set_axis_off()
+save_path = os.path.join(SAVE_DIR, 'property_crime.png')
+plt.savefig(save_path, dpi=300, bbox_inches='tight')
+plt.show()
+```
+
+
+```{python}
+# now for violent crime
+fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+
+county_map.plot(
+    color='lightgrey',   
+    ax=ax)
+
+data_grouped_geo.plot(
+    column='Violent crime_rate_winsor',              
+    linewidth=0.2,           
+    edgecolor='0.5',          
+    legend=True,              
+    ax=ax,
+    zorder=2,
+    cmap='magma',
+    )
+
+cbar_ax = fig.axes[-1]
+cbar_ax.set_title('Violent Crime Rate\n(per 1,000 residents)', fontsize=10)
+ax.set_position([0.03, 0.08, 0.82, 0.85])
+cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
+
+ax.set_title('County-Level Violent Crime Rates', fontsize=24)
+ax.axis('off')  
+
+ax.set_axis_off()
+save_path = os.path.join(SAVE_DIR, 'violent_crime.png')
+plt.savefig(save_path, dpi=300, bbox_inches='tight')
+plt.show()
+
+```
+
+
+```{python}
+# Now for mobility
+
+fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+
+county_map.plot(
+    color='lightgrey',   
+    ax=ax)
+
+norm = mpl.colors.Normalize(vmin=-9, vmax=7)
+data_grouped_geo.plot(
+    column='kr26_p25_coef',              
+    linewidth=0.2,           
+    edgecolor='0.5',          
+    legend=True,              
+    ax=ax,
+    zorder=2,
+    cmap='magma_r',
+    norm=norm
+    )
+
+cbar_ax = fig.axes[-1]
+cbar_ax.set_title('Mobility Coefficient', fontsize=10)
+ax.set_position([0.03, 0.08, 0.82, 0.85])
+cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
+
+ax.set_title('County-Level Mobility for 25th percentile', fontsize=24)
+ax.axis('off')  
+
+ax.set_axis_off()
+save_path = os.path.join(SAVE_DIR, 'mobility_25.png')
+plt.savefig(save_path, dpi=300, bbox_inches='tight')
+plt.show()
+```
+
+```{python}
+fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+
+county_map.plot(
+    color='lightgrey',   
+    ax=ax)
+
+data_grouped_geo.plot(
+    column='kr26_p75_coef',              
+    linewidth=0.2,           
+    edgecolor='0.5',          
+    legend=True,              
+    ax=ax,
+    zorder=2,
+    cmap='magma_r',
+    )
+
+cbar_ax = fig.axes[-1]
+cbar_ax.set_title('Mobility Coefficient', fontsize=10)
+ax.set_position([0.03, 0.08, 0.82, 0.85])
+cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
+
+ax.set_title('County-Level Mobility for 75th percentile', fontsize=24)
+ax.axis('off')  
+
+ax.set_axis_off()
+save_path = os.path.join(SAVE_DIR, 'mobility_75.png')
+plt.savefig(save_path, dpi=300, bbox_inches='tight')
+plt.show()
+```
