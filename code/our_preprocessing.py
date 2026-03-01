@@ -287,12 +287,27 @@ qcew = county.merge(national, how='left', on=['Ownership', 'Industry'])
 qcew['Employment Location Quotient'] = qcew['Local Employment Share'] / qcew['National Employment Share']
 qcew['Wage Location Quotient'] = qcew['Local Wage Share'] / qcew['National Wage Share']
 
+#calculate HHI
+hhi_data = qcew[qcew['Ownership'] != 'Total Covered']
+
+hhi_group = hhi_data.groupby('Area\nCode', as_index=False).agg({
+    'Local Wage Share': lambda x: 1 / (x**2).sum()
+})
+
+hhi_group = hhi_group.rename(columns={
+    'Local Wage Share': 'Inverse HHI'
+})
+
+qcew = qcew.merge(hhi_group, on='Area\nCode', how='left', indicator=True, validate="m:1")
+
+assert len(qcew[qcew['_merge'] != 'both']) == 0
+
 #rename our county FIPS and drop irrelevant columns
 qcew = qcew.rename(columns={
     'Area\nCode': 'countyfips'
 }).drop(columns=[
-    'Local Employment Share', 'Local Wage Share',
-    'National Employment Share', 'National Wage Share'
+    'National Employment Share', 'National Wage Share',
+    '_merge'
 ])
 
 #write to csv for clean dataset (but will be merged)
