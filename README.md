@@ -1,6 +1,6 @@
-# Fire Perimeter Analysis
+# Economic Mobility and Socioeconomic Factors
 
-This project processes and visualizes historical fire perimeter data and Canadian CPI data.
+This project processes and visualizes data on economic mobility, industry concentration, and crime to explore the causal effect of place. 
 
 ## Setup
 
@@ -12,16 +12,19 @@ conda activate fire_analysis
 ## Project Structure
 
 ```
+Due the the size of our data, we use a Google Drive to store the files that can be accessed here:
+https://drive.google.com/drive/folders/1spfMCOnuv5OpxtNFlrOwabe6jGVzijCf?usp=sharing.
+For replicability, download the drive in a folder in the repository called 'data'.
+
+The original data sets can be found at the following links and we last accessed on February 8th, 2026:
+  
+
 data/
-  raw-data/           # Raw data files
-    fire.csv          # Historical fire perimeter data
-    canadian_cpi.csv  # Canadian Consumer Price Index data
-  derived-data/       # Filtered data and output plots
-    fire_filtered.gpkg  # Fire data filtered to post-2015
-    cpi_filtered.csv    # CPI data filtered to 2020 onwards
+  derived-data/                   # used as intermediate in cleaning               
 code/
-  preprocessing.py    # Filters fire and CPI data
-  plot_fires.py       # Plots fire perimeters
+  our_preprocessing.py            # Harmonizes crime data and combines this with Chetty-Hendren data on mobility, QCEW data on industry concentration, and census shapefiles. 
+  crime_map.py                    # Plots maps for both violent and property crime
+  app.py                          # Contains script to create Streamlit Dashboard. 
 ```
 
 ## Usage
