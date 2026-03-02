@@ -67,20 +67,17 @@ variable_choice = st.selectbox(
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file('data/clean_data/Colapsed Data with Geography.gpkg')
-    df = df[df['STATE'] != '15']
-    pctile95 = df['Property crime_rate'].quantile(0.95)
-    df["Property crime_rate_winsor"] = np.where(df["Property crime_rate"] > pctile95, 
-                                                     pctile95, 
-                                                     df["Property crime_rate"]) 
+    df = gpd.read_file(os.path.join(BASE_DIR, 'data/derived_data/Collapsed Data with Geography.gpkg'))
+    county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
+    county_data = county_data[county_data['STATE'] != '02']
+    county_data = county_data[county_data['STATE'] != '15']
     pctile95v = df['Violent crime_rate'].quantile(0.95)
     df["Violent crime_rate_winsor"] = np.where(df["Violent crime_rate"] > pctile95v, 
                                                      pctile95v, 
-                                                     df["Violent crime_rate"])
+                                                     df["Violent crime_rate"]) 
     df["HHI_winsor"] = np.where(df['Inverse HHI'] < 1, 1, df["Inverse HHI"])
     pctile95hhi = df['Inverse HHI'].quantile(0.95)
     df["HHI_winsor"] = np.where(df["HHI_winsor"] > pctile95hhi, pctile95hhi, df["HHI_winsor"]) 
-    
 
     return df, county_data
 
