@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import requests
 import altair as alt
-import gdown
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -67,7 +66,7 @@ variable_choice = st.selectbox(
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file(os.path.join(BASE_DIR, 'data/derived_data/Collapsed Data with Geography.gpkg'))
+    df = gpd.read_file(os.path.join(BASE_DIR, 'data/clean_data/Collapsed Data with Geography.gpkg'))
     county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
     county_data = county_data[county_data['STATE'] != '02']
     county_data = county_data[county_data['STATE'] != '15']
