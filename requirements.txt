@@ -4,7 +4,6 @@ numpy
 matplotlib
 geopandas
 streamlit
-altair
-pathlib
+altair==4.2.2
 pyreadstat
 
