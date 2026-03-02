@@ -5,5 +5,3 @@ matplotlib
 geopandas
 streamlit
 altair==4.2.2
-pyreadstat
-
