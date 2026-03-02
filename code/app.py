@@ -42,9 +42,9 @@ variable_choice = st.selectbox(
 @st.cache_data
 def load_data():
     df = gpd.read_file(os.path.join(BASE_DIR, 'data/clean_data/Collapsed Data with Geography.gpkg'))
-    county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
-    county_data = county_data[county_data['STATE'] != '02']
-    county_data = county_data[county_data['STATE'] != '15']
+    #county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
+    #county_data = county_data[county_data['STATE'] != '02']
+    #county_data = county_data[county_data['STATE'] != '15']
     pctile95v = df['Violent crime_rate'].quantile(0.95)
     df["Violent crime_rate_winsor"] = np.where(df["Violent crime_rate"] > pctile95v, 
                                                      pctile95v, 
@@ -53,9 +53,9 @@ def load_data():
     pctile95hhi = df['Inverse HHI'].quantile(0.95)
     df["HHI_winsor"] = np.where(df["HHI_winsor"] > pctile95hhi, pctile95hhi, df["HHI_winsor"]) 
 
-    return df, county_data
+    return df
 
-df, county_data = load_data()
+df = load_data()
 
 if under_50:
     df = df[df['kr26_p25_coef'] <= 0]
