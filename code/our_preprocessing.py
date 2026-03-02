@@ -378,3 +378,10 @@ shape_full = county_map.merge(full_data, right_on='County FIPS 2000', left_on='G
 shape_full = gpd.GeoDataFrame(shape_full, geometry='geometry')
 
 shape_full.to_file('data\derived_data\Full Data with Geography.gpkg', driver='GPKG')
+
+# We need to make our data spaller so we can push to githunb
+shape_full = shape_full[
+    (shape_full["Ownership"] == "Private") &
+    (shape_full["Industry"] == "Total, all industries")]
+
+shape_full.to_file('data\clean_data\Collapsed Data with Geography.gpkg', driver='GPKG')

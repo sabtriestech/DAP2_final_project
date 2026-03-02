@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import geopandas as gpd
 from os.path import join
 import os
@@ -10,6 +9,9 @@ import pydeck as pdk
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import requests
+import altair as alt
+import gdown
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -17,7 +19,6 @@ alt.renderers.enable("png")
 alt.data_transformers.disable_max_rows()
 
 BASE_DIR = Path(__file__).parent.parent
-
 
 # improve graph resolution
 import tempfile
@@ -66,14 +67,8 @@ variable_choice = st.selectbox(
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file(os.path.join(BASE_DIR, 'data/derived_data/Full Data with Geography.gpkg'))
-    county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
-    county_data = county_data[county_data['STATE'] != '02']
-    county_data = county_data[county_data['STATE'] != '15']
+    df = gpd.read_file('data/clean_data/Colapsed Data with Geography.gpkg')
     df = df[df['STATE'] != '15']
-    df = df[
-    (df["Ownership"] == "Private") &
-    (df["Industry"] == "Total, all industries")]
     pctile95 = df['Property crime_rate'].quantile(0.95)
     df["Property crime_rate_winsor"] = np.where(df["Property crime_rate"] > pctile95, 
                                                      pctile95, 
