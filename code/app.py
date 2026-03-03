@@ -19,19 +19,13 @@ alt.data_transformers.disable_max_rows()
 
 BASE_DIR = Path(__file__).parent.parent
 
-st.set_page_config(page_title='Economic Mobility, Wages, and Crime')
+st.set_page_config(page_title='Economic Mobility, Wages, and Crime', layout="wide")
 st.title('Economic Mobility, Wages, and Crime')
 
 def intro():
     import streamlit as st
     st.markdown('This dashboard allows you to explore economic mobility data and its ties to other socioeconomic indicators. To begin, select an indicator of choice')
 intro()
-
-st.markdown("### Filters")
-# Type of County
-all = st.checkbox("All", value=True)
-under_50 = st.checkbox("Show only >50% Mobility for 25th Percentile", value=False)
-over_50 = st.checkbox("Show Only <50% Mobility for 25th Percentile", value=False)
 
 variable_choice = st.selectbox(
     "Select a Variable",
@@ -42,9 +36,6 @@ variable_choice = st.selectbox(
 @st.cache_data
 def load_data():
     df = gpd.read_file(os.path.join(BASE_DIR, 'data/clean_data/Collapsed Data with Geography.gpkg'))
-    #county_data = gpd.read_file(os.path.join(BASE_DIR,'data/Shapefiles/County/co99_d00.shp'))
-    #county_data = county_data[county_data['STATE'] != '02']
-    #county_data = county_data[county_data['STATE'] != '15']
     pctile95v = df['Violent crime_rate'].quantile(0.95)
     df["Violent crime_rate_winsor"] = np.where(df["Violent crime_rate"] > pctile95v, 
                                                      pctile95v, 
@@ -57,15 +48,6 @@ def load_data():
 
 df = load_data()
 
-if under_50:
-    df = df[df['kr26_p25_coef'] <= 0]
-elif over_50:
-    df = df[df['kr26_p25_coef'] >= 0]
-else:
-    df = df
-
-sample_df = df
-
 #dictionary for selected columns:
 selected_column = {'Mobility for 25th percentile':'kr26_p25_coef',
                    'Mobility for 75th percentile': 'kr26_p75_coef',
@@ -75,44 +57,86 @@ selected_column = {'Mobility for 25th percentile':'kr26_p25_coef',
 
 variable_column = selected_column[variable_choice]
 
-min_val = sample_df[variable_column].min()
-max_val = sample_df[variable_column].max()
+col1, col2 = st.columns(2)
+with col1:
+    st.subheader(f"Mapping Data on {variable_choice}")
+    min_val = df[variable_column].min()
+    max_val = df[variable_column].max()
 
-cmap = cm.get_cmap('magma', 256)
+    cmap = cm.get_cmap('magma', 256)
 
-def get_color(x, min_val, max_val, colormap):
-    if pd.isna(x):
-        return "#cccccc" 
-    norm_val = (x - min_val) / (max_val - min_val)
-    rgba_color_float = colormap(norm_val)
+    def get_color(x, min_val, max_val, colormap):
+        if pd.isna(x):
+            return "#cccccc" 
+        norm_val = (x - min_val) / (max_val - min_val)
+        rgba_color_float = colormap(norm_val)
 
-    rgba_color_int = [int(x * 255) for x in rgba_color_float]
-    return rgba_color_int
+        rgba_color_int = [int(x * 255) for x in rgba_color_float]
+        return rgba_color_int
 
-df['color_rgba'] = df[variable_column].apply(lambda x: get_color(x, min_val, max_val, cmap))
+    df['color_rgba'] = df[variable_column].apply(lambda x: get_color(x, min_val, max_val, cmap))
 
-layer = pdk.Layer(
-    'GeoJsonLayer',
-    data=sample_df,
-    get_position=['lon', 'lat'],
-    auto_highlight=True,
-    get_radius=100000,
-    get_fill_color='color_rgba', 
-    pickable=True
-)
+    layer = pdk.Layer(
+        'GeoJsonLayer',
+        data=df,
+        get_position=['lon', 'lat'],
+        auto_highlight=True,
+        get_radius=100000,
+        get_fill_color='color_rgba', 
+        pickable=True
+        )
 
-view_state = pdk.ViewState(
-    latitude=39.8283,
-    longitude=-98.5795, zoom=3,
-    pitch=0, bearing=0
-)
+    view_state = pdk.ViewState(
+        latitude=39.8283,
+        longitude=-98.5795, zoom=3,
+        pitch=0, bearing=0
+    )
 
-deck = pdk.Deck(
-    layers=[layer],
-    initial_view_state=view_state,
-    tooltip={
-        "html": "<b>County:</b> {County Name}<br/>Value:  {" + variable_column + "}"
-    }
-)
+    deck = pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        tooltip={
+            "html": "<b>County:</b> {County Name}<br/>Value:  {" + variable_column + "}"
+        }
+    )
 
-st.pydeck_chart(deck)
+    st.pydeck_chart(deck)
+with col2:
+    st.subheader(f"Histogram of Values for {variable_choice}")
+    st.markdown("#### Filters")
+    # Type of County
+    all = st.checkbox("All", value=True)
+    under_50 = st.checkbox("Show only >50% Mobility for 25th Percentile", value=False)
+    over_50 = st.checkbox("Show Only <50% Mobility for 25th Percentile", value=False)
+    filtered_df = df.copy()
+
+    if under_50:
+        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] <= 0]
+    elif over_50:
+        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] >= 0]
+
+    sample_df = filtered_df
+
+    chart_data = sample_df[[variable_column]]
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        alt.X(f"{variable_column}:Q", bin=True, title=f'{variable_choice}'),
+        alt.Y('count()', title = 'Frequency'),
+        color=alt.value('#FEA96C')).properties(
+        title=f'Distribution of Counties on Variable')
+
+    mean_line = alt.Chart(chart_data).mark_rule(color='#A52C7A',size=4).encode(
+    x=alt.X(f'mean({variable_column}):Q'))
+
+    label = alt.Chart(chart_data).mark_text(
+    align='left',
+    baseline='middle',
+    dx=5,
+    size=10,
+    color='#000004').encode(
+    x=alt.X(f'mean({variable_column}):Q'),
+    y=alt.value(10),
+    text=alt.Text(f'mean({variable_column}):Q', format='.2f'))
+  
+    plot = chart + mean_line + label
+    plot
+

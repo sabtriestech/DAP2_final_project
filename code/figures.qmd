@@ -328,11 +328,11 @@ data_grouped_geo.plot(
     legend=True,              
     ax=ax,
     zorder=2,
-    cmap='magma'
+    cmap='magma_r'
     )
 
 cbar_ax = fig.axes[-1]
-cbar_ax.set_title('Property Crime Rate\n(per 1,000 residents)', fontsize=10)
+cbar_ax.set_title('Property Crime Rate\n(per 100,000 residents)', fontsize=10)
 ax.set_position([0.03, 0.08, 0.82, 0.85])
 cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
 
@@ -361,11 +361,11 @@ data_grouped_geo.plot(
     legend=True,              
     ax=ax,
     zorder=2,
-    cmap='magma',
+    cmap='magma_r',
     )
 
 cbar_ax = fig.axes[-1]
-cbar_ax.set_title('Violent Crime Rate\n(per 1,000 residents)', fontsize=10)
+cbar_ax.set_title('Violent Crime Rate\n(per 100,000 residents)', fontsize=10)
 ax.set_position([0.03, 0.08, 0.82, 0.85])
 cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
 
