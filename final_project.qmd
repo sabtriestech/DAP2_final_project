@@ -344,29 +344,21 @@ One difficulty we had resulted from the limited coverage in crime data. Since re
 
 # Resulting Static Plots
 
-The first four static plots are geospatial visualizations of different crime and mobility measures, as we wanted to visualize the discrepancies between regions. Maps for both property and violent crime show a significantly higher crime rates in the Southeast U.S. than in other regions. However, due to methodology behind the mobility data, there was much less visible variation with the exception of a few outliers. For this reason, we decided to not visualize mobility in our dashboard, but to have it as filter to explore other variables. These 4 visualizations highlighted that there wasn't much visible overlap between our crime and mobility measures, contrary to our expectations. 
+The first two static plots are geospatial visualizations of different crime  measures, as we wanted to visualize the discrepancies between regions. Maps for both property and violent crime show a significantly higher crime rates in the Southeast U.S. than in other regions. However, due to methodology behind the mobility data, there was much less visible variation with the exception of a few outliers. For this reason, we decided to not visualize mobility in our dashboard, but to have it as filter to explore other variables. Additionally when we add in mobility data, be loose a significant number of counties in the West and Midwest. The third graph shows Data coverage across both datasets. 
 
 ```{python}
 #| echo: false
-data_w_geo= gpd.read_file(os.path.join("data\derived_data\Full Data with Geography.gpkg"))
-
-county_map = gpd.read_file(os.path.join('data\Shapefiles\County\co99_d00.shp'))
 #drop Alaska and Hawaii
 county_map = county_map[county_map['STATE'] != '02']
 county_map = county_map[county_map['STATE'] != '15']
 
-#want to collapse to single row per county
-data_grouped_geo = data_w_geo[
-    (data_w_geo["Ownership"] == "Private") &
-    (data_w_geo["Industry"] == "Total, all industries")]
-
-data_grouped_geo = data_grouped_geo[data_grouped_geo["state_name"]!="Hawaii"]
+full_data = full_data[full_data["state_name"]!="Hawaii"]
 
 #want to winsorize property crime to display better
-pctile95 = data_grouped_geo['Property crime_rate'].quantile(0.95)
-data_grouped_geo["Property crime_rate_winsor"] = np.where(data_grouped_geo["Property crime_rate"] > pctile95, 
+pctile95 = full_data['Property crime_rate'].quantile(0.95)
+full_data["Property crime_rate_winsor"] = np.where(full_data["Property crime_rate"] > pctile95, 
                                                      pctile95, 
-                                                     data_grouped_geo["Property crime_rate"]) 
+                                                     full_data["Property crime_rate"]) 
 
 fig, ax = plt.subplots(1, 1, figsize=(12, 8))
 
@@ -374,7 +366,7 @@ county_map.plot(
     color='lightgrey',   
     ax=ax)
 
-data_grouped_geo.plot(
+full_data.plot(
     column='Property crime_rate_winsor',              
     linewidth=0.2,           
     edgecolor='0.5',          
@@ -399,10 +391,10 @@ plt.show()
 
 ```{python}
 #| echo: false
-pctile95 = data_grouped_geo['Violent crime_rate'].quantile(0.95)
-data_grouped_geo["Violent crime_rate_winsor"] = np.where(data_grouped_geo["Violent crime_rate"] > pctile95, 
+pctile95 = full_data['Violent crime_rate'].quantile(0.95)
+full_data["Violent crime_rate_winsor"] = np.where(full_data["Violent crime_rate"] > pctile95, 
                                                      pctile95, 
-                                                     data_grouped_geo["Violent crime_rate"]) 
+                                                     full_data["Violent crime_rate"]) 
 
 # now for violent crime
 fig, ax = plt.subplots(1, 1, figsize=(12, 8))
@@ -411,7 +403,7 @@ county_map.plot(
     color='lightgrey',   
     ax=ax)
 
-data_grouped_geo.plot(
+full_data.plot(
     column='Violent crime_rate_winsor',              
     linewidth=0.2,           
     edgecolor='0.5',          
@@ -435,30 +427,24 @@ plt.show()
 
 ```{python}
 #| echo: false
+full_sample = full_data.dropna(subset=['kr26_p25_coef'])
 fig, ax = plt.subplots(1, 1, figsize=(12, 8))
 
 county_map.plot(
     color='lightgrey',   
     ax=ax)
 
-norm = mpl.colors.Normalize(vmin=-9, vmax=7)
-data_grouped_geo.plot(
+full_sample.plot(
     column='kr26_p25_coef',              
     linewidth=0.2,           
     edgecolor='0.5',          
-    legend=True,              
+    legend=False,              
     ax=ax,
     zorder=2,
-    cmap='magma_r',
-    norm=norm
+    color="#40248c"
     )
 
-cbar_ax = fig.axes[-1]
-cbar_ax.set_title('Mobility Coefficient', fontsize=10)
-ax.set_position([0.03, 0.08, 0.82, 0.85])
-cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
-
-ax.set_title('County-Level Mobility for 25th percentile', fontsize=24)
+ax.set_title('Data Coverage for Crime and Mobility', fontsize=24)
 ax.axis('off')  
 
 ax.set_axis_off()
@@ -466,35 +452,6 @@ plt.show()
 
 ```
 
-```{python}
-#| echo: false
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-
-county_map.plot(
-    color='lightgrey',   
-    ax=ax)
-
-data_grouped_geo.plot(
-    column='kr26_p75_coef',              
-    linewidth=0.2,           
-    edgecolor='0.5',          
-    legend=True,              
-    ax=ax,
-    zorder=2,
-    cmap='magma_r',
-    )
-
-cbar_ax = fig.axes[-1]
-cbar_ax.set_title('Mobility Coefficient', fontsize=10)
-ax.set_position([0.03, 0.08, 0.82, 0.85])
-cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
-
-ax.set_title('County-Level Mobility for 75th percentile', fontsize=24)
-ax.axis('off')  
-
-ax.set_axis_off()
-plt.show()
-```
 
 ```{python}
 full_data['housing_quint_high'] = pd.qcut(full_data['Median House Price for Above-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])

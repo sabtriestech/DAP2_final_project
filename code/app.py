@@ -19,8 +19,8 @@ alt.data_transformers.disable_max_rows()
 
 BASE_DIR = Path(__file__).parent.parent
 
-st.set_page_config(page_title='Economic Mobility, Wages, and Crime', layout="wide")
-st.title('Economic Mobility, Wages, and Crime')
+st.set_page_config(page_title='Economic Mobility', layout="wide")
+st.title('Economic Mobility, Wages, Housing, and Crime')
 
 def intro():
     import streamlit as st
@@ -29,13 +29,14 @@ intro()
 
 variable_choice = st.selectbox(
     "Select a Variable",
-    options= ["Mobility for 25th percentile","Mobility for 75th percentile", "Violent Crime", "Property Crime", "HHI"]
+    options= ["Violent Crime", "Property Crime", "HHI",
+               "Housing Prices for Low Earners", "Housing Prices for High Earners"]
 )
 
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file(os.path.join(BASE_DIR, 'data/clean_data/Collapsed Data with Geography.gpkg'))
+    df = gpd.read_file(os.path.join(BASE_DIR, 'data/derived_data/Dashboard Data.csv'))
     pctile95v = df['Violent crime_rate'].quantile(0.95)
     df["Violent crime_rate_winsor"] = np.where(df["Violent crime_rate"] > pctile95v, 
                                                      pctile95v, 
@@ -49,8 +50,8 @@ def load_data():
 df = load_data()
 
 #dictionary for selected columns:
-selected_column = {'Mobility for 25th percentile':'kr26_p25_coef',
-                   'Mobility for 75th percentile': 'kr26_p75_coef',
+selected_column = {'Housing Prices for Low Earners':'Median House Price for Below-Median Income Families',
+                   'Housing Prices for High Earners': 'Median House Price for Above-Median Income Families',
                     'Property Crime': 'Property crime_rate_winsor',
                     'Violent Crime':'Violent crime_rate_winsor',
                     'HHI': 'HHI_winsor'}
