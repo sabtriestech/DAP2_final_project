@@ -31,11 +31,275 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
-BASE_DIR = Path(__file__).parent.parent
-BASE_DIR
-os.chdir(BASE_DIR)
+import xlrd
 ```
+```{python}
+
+!pip install xlrd
+
+```
+
+```{python}
+
+#crime data processing
+
+file_path = 'data/FBI_Crime_Data'
+
+crime_2012 = pd.read_excel(f'{file_path}/2012.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index() 
+crime_2012["Year"] = 2012 
+crime_2011 = pd.read_excel(f'{file_path}/2011.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index() 
+crime_2011["Year"] = 2011
+crime_2010 = pd.read_excel(f'{file_path}/2010.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index()
+crime_2010["Year"] = 2010 
+crime_2009 = pd.read_excel(f'{file_path}/2009.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index()
+crime_2009["Year"] = 2009 
+crime_2008 = pd.read_excel(f'{file_path}/2008.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index()
+crime_2008["Year"] = 2008
+crime_2007 = pd.read_excel(f'{file_path}/2007.xls',
+                            skiprows=4, skipfooter=7, index_col=[0]).reset_index()
+crime_2007["Year"] = 2007
+crime_2006 = pd.read_excel(f'{file_path}/2006.xls',
+                            skiprows=4, skipfooter=8, index_col=[0]).reset_index() 
+crime_2006["Year"] = 2006
+crime_2005 = pd.read_excel(f'{file_path}/2005.xls',
+                            skiprows=4, skipfooter=8, index_col=[0]).reset_index() 
+crime_2005["Year"] = 2005
+
+all_sheets = [crime_2012, crime_2011, crime_2010, crime_2009, crime_2008, crime_2007, crime_2006, crime_2005]
+
+# loop over yearly sheets
+for s in all_sheets:
+    #get rid of line breaks in column headings
+    s.columns = s.columns.str.replace('\n', ' ', regex=True)
+    #remove footnote from Arson and Rape Column; rename columns that have inconsistent spacing
+    s.rename(columns={'Arson1': 'Arson', 'Arson3': 'Arson', 'Arson2': 'Arson', 'Rape1':'Rape',
+                       'Metropolitan/Nonmetropolitan': 'County Type', 'Larceny- theft': 'Larceny-theft',
+                       'Forcible Rape': 'Rape', 'Forcible  Rape': 'Rape', 'Forcible rape': 'Rape',
+                       'Motor  vehicle  theft':'Motor vehicle theft','Motor Vehicle Theft':'Motor vehicle theft',
+                       'Murder and  nonnegligent  manslaughter': 'Murder and nonnegligent manslaughter', 
+                       'Rape (revised  definition)1': 'Rape (revised definition)1', 
+                       'Aggravated  assault': 'Aggravated assault', 'Property  crime': 'Property crime',
+                       'Motor  vehicle  theft': 'Motor vehicle theft', 'Violent Crime': 'Violent crime',
+                       'Property Crime': 'Property crime', 'Violent  crime':'Violent crime',
+                       'Forcible  rape': 'Rape', 'Violent  Crime': 'Violent crime', 
+                       'Property  Crime': 'Property crime'}, inplace=True)
+    #some states and counties have footnotes at the end that will mean that they won't merge correctly
+    s['County'] = s['County'].str.rstrip()
+    s['County'] = s['County'].str.replace(r'\s*\d+$', '', regex=True)
+    s['State'] = s['State'].str.replace(r'\s*\d+$', '', regex=True)
+    #make state titlecase
+    s['State'] = s['State'].str.title()
+
+    #split state name from county type
+    s[['State', 'County Type']] = s['State'].str.split('-', n=1, expand=True)
+
+#crime data from 2008 has a weird extra column, drop that
+crime_2008.drop(columns=['Unnamed: 12'], inplace=True)
+
+# now we concatinate our list of dfs
+crime_all = pd.concat(all_sheets, ignore_index=True)
+
+#next so that crime numbers are comparable, we want to scale those by population data. 
+#since we don't have numbers for 2011 and 2012 we will use 2010 data for these years. 
+pop = pd.read_csv(f'data/Pop_data.csv', encoding='latin1')
+
+pop = pop.drop(columns=['POPESTIMATE2000', 'POPESTIMATE2001', 'POPESTIMATE2002', 'POPESTIMATE2003','POPESTIMATE2004'])
+
+pop['CTYNAME'] = pop['CTYNAME'].str.replace(r" County$", "", regex=True)
+
+#need to rename columns for year and pivot data longer
+pop.rename(columns={'POPESTIMATE2005': '2005', 'POPESTIMATE2006': '2006', 
+                    'POPESTIMATE2007': '2007', 'POPESTIMATE2008': '2008', 
+                    'POPESTIMATE2009': '2009', 'POPESTIMATE2010': '2010'
+                    }, inplace=True)
+              
+#impute 2011 and 2012
+pop['2011'] = pop['2010']
+pop['2012'] = pop['2010']
+pop = pop.drop(columns=['CENSUS2010POP', 'ESTIMATESBASE2000', 
+                  'COUNTY', 'STATE', 'DIVISION', 'REGION', 'SUMLEV'])
+pop_long = pd.melt(pop, ["STNAME", "CTYNAME"])
+
+
+pop_long['variable'] = pd.to_numeric(pop_long['variable'], errors='coerce').astype('int64')
+crime_all['Year'] = pd.to_numeric(crime_all['Year'], errors='coerce').astype('int64')
+pop_long = pop_long.rename(columns={'value': 'Population', 'variable':'Year',
+                                    'STNAME': 'State', 'CTYNAME':'County'})
+
+#use regex to fix county names
+pop_long['County'] = pop_long['County'].str.replace(r' Parish', '', regex=True)
+pop_long['County'] = pop_long['County'].str.replace(r' city', '', regex=True)
+pop_long['County'] = pop_long['County'].str.replace(r' City and Borough', '', regex=True)
+pop_long['County'] = pop_long['County'].str.replace(r' Borough', '', regex=True)
+pop_long['County'] = pop_long['County'].str.replace(r' Census Area', '', regex=True)
+pop_long['County'] = pop_long['County'].str.replace(r' Municipality', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r" County$", "", regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r' County Police Department', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r' County Bureau of Police', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r' Public Safety', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r' Police Department', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r'\s*\d+$', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r' Unified Police Department', '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r" Sheriff's Office", '', regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r"\d+,", "", regex=True)
+crime_all['County'] = crime_all['County'].str.replace(r" County Unified", "", regex=True)
+replace_map = {'Dona Ana': 'Doña Ana', 'Du Page': 'DuPage', 'Lac Qui Parle':'Lac qui Parle',
+               'La Porte': 'LaPorte', 'Lamoure': 'LaMoure'}
+crime_all['County'] = crime_all['County'].replace(replace_map)
+
+crime = crime_all.merge(pop_long, how='inner', 
+                        on=['State', 'County', 'Year'], indicator=True)
+
+#create crime rates 
+crime['Total crime'] = crime['Violent crime'] + crime['Property crime'] 
+
+crime_col = ['Total crime', 'Violent crime','Murder and nonnegligent manslaughter', 'Rape',
+              'Robbery','Aggravated assault', 'Property crime', 'Burglary', 
+              'Larceny-theft','Motor vehicle theft', 'Arson']
+for c in crime_col:
+    crime[f'{c}_rate'] = crime[c] / (crime['Population'] / 100000)
+
+crime = crime.drop(columns=['County Type', '_merge'], errors='ignore')
+#groupby to find averages
+crime_by_county = crime.groupby(['State', 'County']).mean().reset_index()
+
+#and write out clean dataset
+output_path = f'data/derived_data/crime_by_county.csv'
+crime_by_county.to_csv(output_path, index=False)
+```
+
+```{python}
+
+#add in county FIPS codes to crime data with a crosswalk
+countyfips = pd.read_csv('data\countyfips crosswalk.csv')
+countyfips = countyfips[['state_name', 'county', 'countyfips']]
+
+#omit "County" from the end of each county name for matching
+countyfips['county'] = countyfips['county'].str.replace(' County', '', regex=False)
+
+#omit "Parish" as well so that Louisiana matches:
+countyfips['county'] = countyfips['county'].str.replace(' Parish', '', regex=False)
+
+#in crime data, rename Dona Ana, NM to have no tilde:
+crime_by_county.loc[1435, 'County'] = 'Dona Ana'
+
+crime_by_county = crime_by_county.merge(countyfips, 
+                                        left_on=['State', 'County'],
+                                        right_on=['state_name', 'county'],
+                                        how='left',
+                                        indicator=True)
+
+assert len(crime_by_county[crime_by_county['_merge'] != 'both']) == 0
+
+```
+
+```{python}
+
+# QCEW Data
+
+years = list(range(2005, 2013))
+
+dataframes = {}
+
+#read in relevant years in a loop and concatenate
+for year in years:
+
+    suffix = f'{year % 100:02d}'
+    filename = os.path.join('data\QCEW Files (Raw)', f'allhlcn{suffix}.xlsx')
+
+    if os.path.exists(filename):
+        print(f'Reading in file for {year}')
+
+        data = pd.read_excel(filename, sheet_name=0)
+        dataframes[year] = data
+    else:
+        print(f'File not found for year {year}')
+        pass
+
+merged_df = pd.concat(dataframes.values(), ignore_index=True)
+
+```
+
+
+```{python}
+#| echo: false
+
+#pull out relevant variables for aggregation
+subset_df = merged_df[['Area\nCode', 'Area Type', 'Ownership', 'Industry','Annual Total Wages']]
+
+#we want average industry concentration across our years, so sum raw numbers
+grouped_df = subset_df.groupby(['Area\nCode', 'Area Type', 'Ownership', 'Industry'], as_index=False).sum()
+
+#compute wage share for counties
+county = grouped_df[grouped_df['Area Type'] == 'County']
+county_total = county[county['Ownership'] == 'Total Covered']
+
+county_total = county_total.rename(columns={
+    'Annual Total Wages': 'Total County Wages'})
+
+county_total = county_total.drop(columns=['Area Type', 'Ownership', 'Industry'])
+county = county.merge(county_total, on='Area\nCode', how='left')
+
+county['Local Wage Share'] = county['Annual Total Wages'] / county['Total County Wages']
+
+#calculate HHI
+hhi_data = county[~(county['Industry'].isin(['Goods-producing', 'Service_providing', 'Total, all industries']))]
+
+hhi_group = hhi_data.groupby('Area\nCode', as_index=False).agg({
+    'Local Wage Share': lambda x: 1 / (x**2).sum()
+})
+
+hhi_group  = hhi_group.rename(columns={
+    'Local Wage Share': 'Inverse HHI',
+    'Area\nCode': 'countyfips'
+})
+
+```
+
+```{python}
+
+ch_data = pd.read_csv(r'data\chetty_hendren_causal_county_cleaned.csv', encoding='latin-1')
+ch_data['County FIPS 2000'] = ch_data['County FIPS 2000'].astype('string')
+ch_data['County FIPS 2000'] = ch_data['County FIPS 2000'].str.pad(width=5, side='left', fillchar='0')
+
+#merge with qcew
+ch_data = ch_data.merge(hhi_group,
+                     how='left',
+                     left_on='County FIPS 2000',
+                     right_on='countyfips',
+                     indicator=True)
+
+#Clifton Forge City fails to merge. It's under 3500 people, and QCEW data does not contain information for counties this small in public data for confidentiality. As it's a single county that doesn't match, drop.
+
+ch_data = ch_data[ch_data['_merge'] == 'both']
+
+ch_data = ch_data.drop('_merge', axis=1)
+
+crime_by_county['countyfips'] = crime_by_county['countyfips'].astype(str)
+#crime_by_county = crime_by_county.drop('_merge', axis=1)
+
+full_data = ch_data.merge(crime_by_county,
+                     how='inner',
+                     left_on='County FIPS 2000',
+                     right_on='countyfips',
+                     indicator=True)
+
+#drop extraneous columns
+full_data = full_data.drop(
+    ['_merge', 'countyfips_y', 'State_y', 'countyfips_x', 'State_x', 'County', 'county'],
+    axis=1
+    )
+
+dashboard_data = full_data[['County FIPS 2000', 'kr26_p25_coef', 'kr26_p75_coef', 'Inverse HHI', 'Median House Price for Below-Median Income Families (Standardized)','Median House Price for Above-Median Income Families (Standardized)', 'Violent crime_rate', 'Property crime_rate']]
+
+dashboard_data.to_csv('data\derived_data\Dashboard Data.csv', index=False)
+```
+
 
 # Research Question
 
@@ -158,6 +422,9 @@ ax.set_axis_off()
 plt.show()
 
 ```
+
+
+
 
 
 # Streamlit App
