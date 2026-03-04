@@ -331,11 +331,17 @@ dashboard_shape.to_file('data\derived_data\Dashboard Data with Geography.shp')
 
 # Research Question
 
-Our project aimed to explore the social and economic factors that are related to high- and low-mobility counties. In brief: What contributes to areas where children do better than their parents? To do this we brout together Opportunity Insights Causal Place Data, QCEW data on industry concentration, FBI data on crime, and U.S. Census data for population and shapefiles.
+Our project aimed to explore the social and economic factors that are related to high- and low-mobility counties. In brief: What contributes to areas where children do better than their parents? To do this we brought together Opportunity Insights Data, data from the Quarterly Census on Employment and Wages, FBI data on crime, and U.S. Census data for population and shapefiles.
 
 # Data Approach
 
-In terms of county coverage, crime statistics were the limiting factor. Since the Opportunity Insights data focuses on those that moved from 1996-2012, we needed to find some overlapping data for crime in this period. The best source availaible was from county level data from the Crime in the US Report. Data cleaning began by downloading yearly tables, stripping them of unnecessary headers and footnotes, concatenating different years, and harmonizing the names of counties to allow merging with our other data sources. Since the mobility indicators cover a range of years, we averaged crime for the overlapping period and converted it to a rate per 100,000 people to make it more comparable between counties with vastly different populations. There were a few counties that were significant outliers in terms of crime rates. We winsorized these observations to the 95th percentile. 
+Opportunity Insights data was the causal measures of place found in Chetty and Hendren's 2017 papers "The Effect of Neighborhoods on Intergenerational Mobility" I + II, which used data on families that moved to given counties to measure the causal effect of living in a given neighborhood had on children's economic outcomes. The key measure used from this data was "kr26", or the gain in percentile of a child in the national income distribution - if a child grew up in a family in the 25th percentile, and at age 26 is in the 27th percentile, then "kr26" is equal to 2, which represents a gain of 2 percentile points. The dataset also contains rich economic and demographic data for counties, which we take advantage of. It is important to note that these measures were used based on "movers" data from 1996-2012, which we take into consideration when constructing our other measures. We had a sample of about 3100 counties, which excludes counties with not enough movers in this period to construct an index.
+
+We also use QCEW data to construct a measure of industry concentration described below called an "HHI Index." QCEW breaks the total wages and employment in a given county down by industry - broad categories such as "Natural resources and mining," "construction," and "education and health services" - including employment in the federal, state, and local government. We constructed average shares in each industry by summing the total wages in each industry from 2005-2012 (the common coverage period with Chetty Hendren Data and FBI crime data) and dividing by the total wages in a given county from 2005-2012 to get an average measure of wage share across these years.
+
+In terms of data coverage, crime statistics were the limiting factor. Since the Opportunity Insights data focuses on those that moved from 1996-2012, we needed to find some overlapping data for crime in this period. The best source availaible was from county level data from the Crime in the US Report. Data cleaning began by downloading yearly tables, stripping them of unnecessary headers and footnotes, concatenating different years, and harmonizing the names of counties to allow merging with our other data sources. Since the mobility indicators cover a range of years, we averaged crime for the overlapping period and converted it to a rate per 100,000 people to make it more comparable between counties with vastly different populations. There were a few counties that were significant outliers in terms of crime rates. We winsorized these observations to the 95th percentile. 
+
+Our resulting coverage was approximately 2400 counties where mobility, QCEW, and crime data were all indentified. This limitation is discussed below.
 
 # Difficulties
 
@@ -451,9 +457,7 @@ plt.show()
 
 ```
 
-We have a lot of data, so we want to aggregate it up to see patterns. To investigate whether housing prices (the largest expenditure for most families) affects mobility, we divide it into quintiles. Chetty-Hendren's data differentiates between two types of families: families in the 25th percentile of the national income distribution ("below-median income") and families in the 75th percentile of the national income distribution ("above-median income"). We thus take our two housing measures (Median House Price for 1. Above-Median and 2. Below-Median Income Families) and break them into quintiles. We then group by these quintiles and find the mean mobility measure in each quintile. Here, "mobility" indicates how a child who grew up in a certain family (25th vs 75th percentile) does at age 26: the mobility measure "kr26" is thus the gain in percentile in the national income distribution for a child at age 26. Thus, if a child grow up in the 25th percentile and at age 26 is in the 27th percentile, "kr26" is equal to .02.
-
-We thus construct the following plot, with the quintiles for families in a given income level on a shared x-axis:
+We have a lot of data, so we want to aggregate it up to see patterns. To investigate whether housing prices (the largest expenditure for most families) affects mobility, we divide it into quintiles. Chetty-Hendren's data differentiates between two types of families: families in the 25th percentile of the national income distribution ("below-median income") and families in the 75th percentile of the national income distribution ("above-median income"). We thus take our two housing measures (Median House Price for 1. Above-Median and 2. Below-Median Income Families) and break them into quintiles. We then group by these quintiles and find the mean mobility measure in each quintile. We thus construct the following plot, with the quintiles for families in a given income level on a shared x-axis:
 
 ```{python}
 
@@ -482,7 +486,7 @@ combined_df = pd.concat([high_df, low_df])
 ```
 
 ```{python}
-#| echo:false
+#| echo: false
 
 chart = alt.Chart(combined_df).mark_bar().encode(
       x=alt.X('quintile:O', title='Housing Price Quintile'),
@@ -509,7 +513,7 @@ final_bar
 
 The results are striking. For both levels of income, mobility is concentrated almost entirely in the lowest-housing price quintile, and children who grew up in below-median income families tend to lose rank at age 26 when their housing is in the upper 3 quartiles. At almost every housing level, children who grew up in above-median income families tend to outperform low-income children in mobility (as measured by gain in the national income distribution).
 
-We also want to investigate the relationship between the local labor market and various indicators of mobility. Above, we constructed an HHI (Herfindahl-Hirschman Index) using the wages in a given county to see how concentrated earnings are among different industries. This is calculated by taking our different industry types in QCEW data (manufacturing, education, etc.), computing the share of total wages in a given county are earned in the industry, and taking the sum of the square of these shares and inverting them. A value of 1 indicates that wages are entirely concentrated in a given industry, and value of 14 indicates that wages are equally dispersed among each industry. Thus, a higher value indicates more spread out wages (and a less concentrated labor market in one industry).
+We also want to investigate the relationship between the local labor market and various indicators of mobility. Above, we constructed an HHI (Herfindahl-Hirschman Index) using the wages in a given county to see how concentrated earnings are among different industries. This is calculated by taking our different industry types in QCEW data (manufacturing, education, etc.), computing the share of total wages in a given county that are earned in the industry, and taking the inverse sum of the square of these shares. A value of 1 indicates that wages are entirely concentrated in a given industry, and value of 14 indicates that wages are equally dispersed among each industry. Thus, a higher value indicates more spread out wages and a less concentrated labor market in few industries.
  
 
 ```{python}
@@ -679,7 +683,7 @@ wage_chart
 
 The above shows how various crime, affordability, labor market, and social/demographic variables are related to industry concentration. To standardize, we plot how a 1 SD increase in a given measure changes wage dispersion as a percent increase or decrease. Thus, if a 1 SD increase of a given measure is associated with an increase of inverse HHI from 1 to 2, this corresponds to a 100% increase in wage dispersion (and would thus represent a doubling of the effective number of industries in a county). 
 
-Our analysis favors spreading wages out among industries. Higher crime rates, poverty, unemployment and inequality (Gini coefficent and income segregation) are associated with more concentrated labor markets, whereas a 1 SD increase in our affordability measures are associated with less concentrated labor markets. It is not, however, a panacea: in less concentrated labor markets, there tend to be more children with single mothers and more teens in the labor force, fewer married adults, and lower school expenditure.
+Our analysis favors spreading wages out among industries. Higher crime rates, poverty, unemployment, and inequality (Gini coefficent and income segregation) are associated with more concentrated labor markets, whereas a 1 SD increase in our affordability measures are associated with less concentrated labor markets. It is not, however, a panacea: in less concentrated labor markets, there tend to be more children with single mothers, more teens in the labor force, fewer married adults, and lower school expenditure.
 
 # Streamlit App
 
