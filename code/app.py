@@ -116,9 +116,9 @@ with col2:
     filtered_df = df.copy()
 
     if under_50:
-        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] <= 0]
+        filtered_df = filtered_df[filtered_df['kr26_p25_c'] <= 0]
     elif over_50:
-        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] >= 0]
+        filtered_df = filtered_df[filtered_df['kr26_p25_c'] >= 0]
 
     sample_df = filtered_df
 
