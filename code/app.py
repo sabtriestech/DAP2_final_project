@@ -36,7 +36,7 @@ variable_choice = st.selectbox(
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file("C:/Users/s_bea/DAP2_final_project/data/derived_data/Dashboard Data with Geography.shp")
+    df = gpd.read_file(os.path.join(BASE_DIR,"data/derived_data/Dashboard Data with Geography.shp"))
     pctile95v = df['Violent cr'].quantile(0.95)
     df["Violent crime_rate_winsor"] = np.where(df["Violent cr"] > pctile95v, 
                                                      pctile95v, 
