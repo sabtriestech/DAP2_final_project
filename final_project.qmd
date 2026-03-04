@@ -29,17 +29,16 @@ from pathlib import Path
 import os
 import pandas as pd
 import numpy as np
+import altair as alt
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import xlrd
 ```
-```{python}
-
-!pip install xlrd
-
-```
 
 ```{python}
+
+#| echo: false
+#| output: false
 
 #crime data processing
 
@@ -175,6 +174,9 @@ crime_by_county.to_csv(output_path, index=False)
 
 ```{python}
 
+#| echo: false
+#| output: false
+
 #add in county FIPS codes to crime data with a crosswalk
 countyfips = pd.read_csv('data\countyfips crosswalk.csv')
 countyfips = countyfips[['state_name', 'county', 'countyfips']]
@@ -199,6 +201,8 @@ assert len(crime_by_county[crime_by_county['_merge'] != 'both']) == 0
 ```
 
 ```{python}
+#| echo: false
+#| output: false
 
 # QCEW Data
 
@@ -248,7 +252,11 @@ county = county.merge(county_total, on='Area\nCode', how='left')
 county['Local Wage Share'] = county['Annual Total Wages'] / county['Total County Wages']
 
 #calculate HHI
-hhi_data = county[~(county['Industry'].isin(['Goods-producing', 'Service_providing', 'Total, all industries']))]
+hhi_data = county[(county['Industry'] != 'Goods-producing') & (county['Industry'] != 'Service-providing')]
+
+hhi_data = hhi_data[hhi_data['Ownership'] != 'Total Covered']
+
+hhi_data = hhi_data[~((hhi_data['Ownership'] == 'Private') & (hhi_data['Industry'] == 'Total, all industries'))]
 
 hhi_group = hhi_data.groupby('Area\nCode', as_index=False).agg({
     'Local Wage Share': lambda x: 1 / (x**2).sum()
@@ -258,7 +266,6 @@ hhi_group  = hhi_group.rename(columns={
     'Local Wage Share': 'Inverse HHI',
     'Area\nCode': 'countyfips'
 })
-
 ```
 
 ```{python}
@@ -298,9 +305,31 @@ full_data = full_data.drop(
 dashboard_data = full_data[['County FIPS 2000', 'kr26_p25_coef', 'kr26_p75_coef', 'Inverse HHI', 'Median House Price for Below-Median Income Families (Standardized)','Median House Price for Above-Median Income Families (Standardized)', 'Violent crime_rate', 'Property crime_rate']]
 
 dashboard_data.to_csv('data\derived_data\Dashboard Data.csv', index=False)
+
+county_map = gpd.read_file(os.path.join('data\Shapefiles\County\co99_d00.shp'))
+county_map = county_map[county_map['STATE'] != '02']
+
+#counstruct countyfips
+county_map['GEOID'] = (
+    county_map['STATE']
+    .astype(str)
+    .str.pad(width=2, side='left', fillchar='0') + 
+    county_map['COUNTY']
+    .astype(str).str.pad(width=3, side='left', fillchar='0')
+)
+
+dashboard_shape = county_map.merge(dashboard_data, right_on='County FIPS 2000', left_on='GEOID', how='right')
+
+dashboard_shape = gpd.GeoDataFrame(dashboard_shape, geometry='geometry')
+
+
+
 ```
 
+```{python}
 
+dashboard_shape.to_file('data\derived_data\Dashboard Data with Geography.shp')
+```
 # Research Question
 
 Our project aimed to explore the social and economic factors that are related to high- and low-mobility counties. In brief: What contributes to areas where children do better than their parents? To do this we brout together Opportunity Insights Causal Place Data, QCEW data on industry concentration, FBI data on crime, and U.S. Census data for population and shapefiles.
