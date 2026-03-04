@@ -198,6 +198,8 @@ crime_by_county = crime_by_county.merge(countyfips,
 
 assert len(crime_by_county[crime_by_county['_merge'] != 'both']) == 0
 
+crime_by_county = crime_by_county.drop('_merge', axis=1)
+
 ```
 
 ```{python}
@@ -270,6 +272,9 @@ hhi_group  = hhi_group.rename(columns={
 
 ```{python}
 
+#| echo: false
+#| output: false
+
 ch_data = pd.read_csv(r'data\chetty_hendren_causal_county_cleaned.csv', encoding='latin-1')
 ch_data['County FIPS 2000'] = ch_data['County FIPS 2000'].astype('string')
 ch_data['County FIPS 2000'] = ch_data['County FIPS 2000'].str.pad(width=5, side='left', fillchar='0')
@@ -320,16 +325,10 @@ county_map['GEOID'] = (
 
 dashboard_shape = county_map.merge(dashboard_data, right_on='County FIPS 2000', left_on='GEOID', how='right')
 
-dashboard_shape = gpd.GeoDataFrame(dashboard_shape, geometry='geometry')
-
-
-
-```
-
-```{python}
-
 dashboard_shape.to_file('data\derived_data\Dashboard Data with Geography.shp')
+
 ```
+
 # Research Question
 
 Our project aimed to explore the social and economic factors that are related to high- and low-mobility counties. In brief: What contributes to areas where children do better than their parents? To do this we brout together Opportunity Insights Causal Place Data, QCEW data on industry concentration, FBI data on crime, and U.S. Census data for population and shapefiles.
@@ -452,8 +451,15 @@ plt.show()
 
 ```
 
+We have a lot of data, so we want to aggregate it up to see patterns. To investigate whether housing prices (the largest expenditure for most families) affects mobility, we divide it into quintiles. Chetty-Hendren's data differentiates between two types of families: families in the 25th percentile of the national income distribution ("below-median income") and families in the 75th percentile of the national income distribution ("above-median income"). We thus take our two housing measures (Median House Price for 1. Above-Median and 2. Below-Median Income Families) and break them into quintiles. We then group by these quintiles and find the mean mobility measure in each quintile. Here, "mobility" indicates how a child who grew up in a certain family (25th vs 75th percentile) does at age 26: the mobility measure "kr26" is thus the gain in percentile in the national income distribution for a child at age 26. Thus, if a child grow up in the 25th percentile and at age 26 is in the 27th percentile, "kr26" is equal to .02.
+
+We thus construct the following plot, with the quintiles for families in a given income level on a shared x-axis:
 
 ```{python}
+
+#| echo: false
+#| output: false
+
 full_data['housing_quint_high'] = pd.qcut(full_data['Median House Price for Above-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
 
 full_data['housing_quint_low'] = pd.qcut(full_data['Median House Price for Below-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
@@ -475,9 +481,9 @@ low_df.rename(columns={'housing_quint_low': 'quintile', 'kr26_p25_coef':
 combined_df = pd.concat([high_df, low_df])
 ```
 
-Plot mobility by housing prices, shared x-axis for different income families:
-
 ```{python}
+#| echo:false
+
 chart = alt.Chart(combined_df).mark_bar().encode(
       x=alt.X('quintile:O', title='Housing Price Quintile'),
       y=alt.Y('mobility:Q', title='Mean Mobility Coefficient (Gain in Percentile)'),
@@ -501,7 +507,10 @@ final_bar = (chart + zero_line_y).configure_view(clip=False)
 final_bar
 ```
 
+The results are striking. For both levels of income, mobility is concentrated almost entirely in the lowest-housing price quintile, and children who grew up in below-median income families tend to lose rank at age 26 when their housing is in the upper 3 quartiles. At almost every housing level, children who grew up in above-median income families tend to outperform low-income children in mobility (as measured by gain in the national income distribution).
 
+We also want to investigate the relationship between the local labor market and various indicators of mobility. Above, we constructed an HHI (Herfindahl-Hirschman Index) using the wages in a given county to see how concentrated earnings are among different industries. This is calculated by taking our different industry types in QCEW data (manufacturing, education, etc.), computing the share of total wages in a given county are earned in the industry, and taking the sum of the square of these shares and inverting them. A value of 1 indicates that wages are entirely concentrated in a given industry, and value of 14 indicates that wages are equally dispersed among each industry. Thus, a higher value indicates more spread out wages (and a less concentrated labor market in one industry).
+ 
 
 ```{python}
 
@@ -589,8 +598,29 @@ results_df['Correlation'] = results_df['Correlation'].astype(str)
 
 #sort by biggest change to avoid "sort=" arg in altair - it breaks text
 results_df = results_df.sort_values('Pct_Change', ascending=False)
-ordered_vars = results_df['Variable'].tolist()
+
 ```
+
+```{python}
+
+#group indicators by category as suggested by Professor Shi
+
+ordered_vars = [
+    #crime statistics
+    'Property Crime Rate', 'Murder/Manslaughter Rate', 
+    #affordability
+    'Location Affordability, Very Low-Income','Median House Rent, Low-Income', 'Median House Price, Low-Income', 'Poverty Rate',
+    #inequality measures 
+     'Gini', 'Income Segregation', 
+    #labor market
+    'Teen (14-16) LFP','Unemployment Rate', 
+    #social/demographic measures
+    'Fraction of Children with Single Mothers', 'Fraction of Adults Married', 'School Expenditure per Student'
+    ]
+
+
+```
+
 
 ```{python}
 
@@ -646,6 +676,10 @@ wage_chart = (errorbars + points + zero_line_x + corr_text).configure_view(clip=
 
 wage_chart
 ```
+
+The above shows how various crime, affordability, labor market, and social/demographic variables are related to industry concentration. To standardize, we plot how a 1 SD increase in a given measure changes wage dispersion as a percent increase or decrease. Thus, if a 1 SD increase of a given measure is associated with an increase of inverse HHI from 1 to 2, this corresponds to a 100% increase in wage dispersion (and would thus represent a doubling of the effective number of industries in a county). 
+
+Our analysis favors spreading wages out among industries. Higher crime rates, poverty, unemployment and inequality (Gini coefficent and income segregation) are associated with more concentrated labor markets, whereas a 1 SD increase in our affordability measures are associated with less concentrated labor markets. It is not, however, a panacea: in less concentrated labor markets, there tend to be more children with single mothers and more teens in the labor force, fewer married adults, and lower school expenditure.
 
 # Streamlit App
 
