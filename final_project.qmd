@@ -467,8 +467,199 @@ ax.set_axis_off()
 plt.show()
 ```
 
+```{python}
+full_data['housing_quint_high'] = pd.qcut(full_data['Median House Price for Above-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
+
+full_data['housing_quint_low'] = pd.qcut(full_data['Median House Price for Below-Median Income Families (Standardized)'], q=5, labels = [1, 2, 3, 4, 5])
+
+high_df = full_data.groupby('housing_quint_high').agg({'kr26_p75_coef':
+  'mean'}).reset_index()
+
+high_df['Income'] = '75th Percentile'
+
+high_df.rename(columns={'housing_quint_high': 'quintile', 'kr26_p75_coef':
+   'mobility'}, inplace=True)
+
+low_df = full_data.groupby('housing_quint_low').agg({'kr26_p25_coef':
+   'mean'}).reset_index()
+low_df['Income'] = '25th Percentile'
+low_df.rename(columns={'housing_quint_low': 'quintile', 'kr26_p25_coef':
+  'mobility'}, inplace=True)
+
+combined_df = pd.concat([high_df, low_df])
+```
+
+Plot mobility by housing prices, shared x-axis for different income families:
+
+```{python}
+chart = alt.Chart(combined_df).mark_bar().encode(
+      x=alt.X('quintile:O', title='Housing Price Quintile'),
+      y=alt.Y('mobility:Q', title='Mean Mobility Coefficient (Gain in Percentile)'),
+      color=alt.Color('Income:N', scale=alt.Scale(range=['#46327E', '#B63679']), title='Parent Income'),
+      xOffset='Income:N'
+  ).properties(
+      width=400,
+      height=300,
+      title={
+        'text':'Mean Mobility by Housing Prices, Below- and Above-Median Income Families',
+        'subtitle': 'As Measured by Child Rank in National Income Distribution at Age 26 '
+  })
+
+zero_line_y = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
+    strokeDash=[5, 5],
+    color='black'
+).encode(y='y:Q')
+
+final_bar = (chart + zero_line_y).configure_view(clip=False)
+
+final_bar
+```
 
 
+
+```{python}
+
+vars = [
+      'Gini (Standardized)',
+      'Median House Price for Below-Median Income Families (Standardized)',
+      'Poverty Rate (Standardized)', 
+      'Murder and nonnegligent manslaughter_rate',
+      'Income Segregation (Standardized)',
+      'Location Affordability of Very Low-Income Individual',
+      'School Expenditure per Student (Standardized)',
+      'Fraction of Children with Single Mothers (Standardized)',
+      'Property crime_rate',
+      'Teenage (14-16) Labor Force Participation (Standardized)',
+      'Median House Rent for Below-Median Income Families (Standardized)',
+      'Unemployment Rate (Standardized)',
+      'Fraction of Adults Married (Standardized)'
+]
+
+#drop extreme values, as some industries in small counties are missing, leading to extemely high values
+wage_data = full_data[full_data['Inverse HHI'] < 10]
+
+outcome = 'Inverse HHI'
+results = []
+
+for var in vars:
+
+    clean_data = wage_data[[var, outcome]].dropna()
+
+    #correlation for easy interpretability (in range [-1, 1])
+    correlation = clean_data[var].corr(clean_data[outcome])
+
+    #run regression on outcome and HHI to get relationship, p-values
+    from scipy import stats
+    slope, intercept, r_value, p_value, std_err = stats.linregress(
+        clean_data[var],
+        clean_data[outcome]
+          )
+
+    n = len(clean_data)
+    t_critical = stats.t.ppf(0.975, n-2)
+    ci_lower = slope - (t_critical * std_err)
+    ci_upper = slope + (t_critical * std_err)    
+
+    mean_concentration = clean_data[outcome].mean()
+
+    #get SD of given variable
+    var_std = clean_data[var].std()
+
+    #calculate effect of 1 SD increase on HHI, with 95% CIs
+    effect_per_sd = slope * var_std
+    effect_ci_lower = ci_lower * var_std
+    effect_ci_upper = ci_upper * var_std
+
+    #convert to percent
+    pct_effect = (effect_per_sd / mean_concentration) * 100
+    pct_ci_lower = (effect_ci_lower / mean_concentration) * 100
+    pct_ci_upper = (effect_ci_upper / mean_concentration) * 100
+    
+    results.append({
+              'Variable': var,
+              'Effect_per_SD': effect_per_sd,
+              'Pct_Change': pct_effect,
+              'Correlation': correlation,
+              'CI_lower': pct_ci_lower,
+              'CI_upper': pct_ci_upper,
+              'P_value': p_value,
+              'Significant': p_value < 0.05
+          })
+
+results_df = pd.DataFrame(results)
+
+
+#clean up variable names for plotting
+results_df['Variable'] = results_df['Variable'].str.replace(' (Standardized)', '', regex=False)
+results_df['Variable'] = results_df['Variable'].str.replace('(Income adjusted)', '', regex=False)
+results_df['Variable'] = results_df['Variable'].str.replace('Teenage (14-16) Labor Force Participation', 'Teen (14-16) LFP', regex=False)
+results_df['Variable'] = results_df['Variable'].str.replace(' for Below-Median Income Families', ', Low-Income', regex=False)
+results_df['Variable'] = results_df['Variable'].str.replace(' of Very Low-Income Individual', ', Very Low-Income', regex=False)
+results_df['Variable'] = results_df['Variable'].str.replace(' and nonnegligent manslaughter_rate', '/Manslaughter Rate')
+results_df['Variable'] = results_df['Variable'].str.replace('crime_rate', 'Crime Rate', regex=False)
+
+#convert correlation to string for plotting
+results_df['Correlation'] = results_df['Correlation'].astype(str)
+
+#sort by biggest change to avoid "sort=" arg in altair - it breaks text
+results_df = results_df.sort_values('Pct_Change', ascending=False)
+ordered_vars = results_df['Variable'].tolist()
+```
+
+```{python}
+
+#base chart - diamonds showing relationship
+points = alt.Chart(results_df).mark_point(
+    color="#40248c",
+    shape='diamond',
+    size=150,
+    opacity=1,
+    filled=True
+    ).encode(
+    x=alt.X('Pct_Change:Q',
+            title='Change in Wage Dispersion Among Different Industry Classifications (%)',
+            scale=alt.Scale(domain=[-4, 6])),  
+    y=alt.Y('Variable:O',
+            scale=alt.Scale(domain=ordered_vars),
+            title='Crime and Mobility Measures')
+).properties(height=500, width=800,
+             title={
+        "text": "Association Between 1 SD Increase of Economic/Crime Measures with Wage Dispersion",
+        "subtitle": "With Associated Correlation Coefficients and Confidence Intervals",
+        })
+
+#confidence intervals
+errorbars = alt.Chart(results_df).mark_errorbar(
+    ticks=True,
+    size=10,
+    color='black'
+).encode(
+    x=alt.X('CI_lower:Q', title=''),
+    x2='CI_upper:Q',
+    y=alt.Y('Variable:O',
+    scale=alt.Scale(domain=ordered_vars))
+)
+
+#correlation coefficent to the right
+corr_text = alt.Chart(results_df).mark_text(
+).encode(
+    x=alt.value(775),
+    y=alt.Y('Variable:O',
+            scale=alt.Scale(domain=ordered_vars),
+            title=None),
+    text=alt.Text('Correlation:Q', format='.2f'))
+
+#zero line to delineate positive and negative relationships
+zero_line_x = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(
+    strokeDash=[5, 5],
+    color='black'
+).encode(x='x:Q')
+
+#put layers together
+wage_chart = (errorbars + points + zero_line_x + corr_text).configure_view(clip=False)
+
+wage_chart
+```
 
 # Streamlit App
 
