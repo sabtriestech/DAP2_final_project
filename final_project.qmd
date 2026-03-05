@@ -1,9 +1,9 @@
 ---
 title: "Exploring Economic Mobility through Data"
-author: "Andrew Doherty-Munro and Sabrina Beaver
+author: "Andrew Doherty-Munro and Sabrina Beaver"
 format:
   pdf:
-include-in-header:
+    include-in-header:
       text: |
         % Enable wrapping for Pandoc code blocks in PDF
         \usepackage{fvextra}
@@ -16,8 +16,11 @@ execute-dir: project
 execute: 
     echo: true
 ---
+
 Group Members: Andrew Doherty-Munro and Sabrina Beaver
+
 Github Usernames: adohertymunro and sabtriestech
+
 Section: Monday 10:30 (Section 2)
 
 ```{python}
@@ -33,12 +36,44 @@ import altair as alt
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import xlrd
+import warnings
+warnings.filterwarnings('ignore')
+alt.renderers.enable("png")
+alt.data_transformers.disable_max_rows()
+
+data_path = 'c:/Users/s_bea/student30538-w26/ps6-sabtriestech/data/data/external'
+
+# improve graph resolution
+import tempfile
+from IPython.display import SVG, display, Image
+import vl_convert as vlc
+
+def display_altair_png(chart, scale=2):
+    """
+    Render an Altair chart to a PNG and display it inline.
+
+    Parameters
+    ----------
+    chart : altair.Chart
+        Altair chart object to render.
+    scale : int, optional
+        Resolution scaling factor for the PNG (default = 2). Use scale=2 for standard slides. Use scale = 3–4 for dense figures or PDF exports.
+    """
+    png_bytes = vlc.vegalite_to_png(chart.to_dict(), scale=scale)
+
+    # Write to a temporary PNG file and display
+    with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+        tmp.write(png_bytes)
+        tmp.flush()
+        display(Image(filename=tmp.name))
 ```
+
 
 ```{python}
 
 #| echo: false
 #| output: false
+#| warning: false
 
 #crime data processing
 
@@ -271,7 +306,6 @@ hhi_group  = hhi_group.rename(columns={
 ```
 
 ```{python}
-
 #| echo: false
 #| output: false
 
@@ -325,6 +359,9 @@ county_map['GEOID'] = (
 
 dashboard_shape = county_map.merge(dashboard_data, right_on='County FIPS 2000', left_on='GEOID', how='right')
 
+#for the maps below
+full_shape = county_map.merge(full_data, right_on='County FIPS 2000', left_on='GEOID', how='right')
+
 dashboard_shape.to_file('data\derived_data\Dashboard Data with Geography.shp')
 
 ```
@@ -333,23 +370,19 @@ dashboard_shape.to_file('data\derived_data\Dashboard Data with Geography.shp')
 
 Our project aimed to explore the social and economic factors that are related to high- and low-mobility counties. In brief: What contributes to areas where children do better than their parents? To do this we brought together Opportunity Insights Data, data from the Quarterly Census on Employment and Wages, FBI data on crime, and U.S. Census data for population and shapefiles.
 
-# Data Approach
+# Data Approach and Difficulties
 
 Opportunity Insights data was the causal measures of place found in Chetty and Hendren's 2017 papers "The Effect of Neighborhoods on Intergenerational Mobility" I + II, which used data on families that moved to given counties to measure the causal effect of living in a given neighborhood had on children's economic outcomes. The key measure used from this data was "kr26", or the gain in percentile of a child in the national income distribution - if a child grew up in a family in the 25th percentile, and at age 26 is in the 27th percentile, then "kr26" is equal to 2, which represents a gain of 2 percentile points. The dataset also contains rich economic and demographic data for counties, which we take advantage of. It is important to note that these measures were used based on "movers" data from 1996-2012, which we take into consideration when constructing our other measures. We had a sample of about 3100 counties, which excludes counties with not enough movers in this period to construct an index.
 
 We also use QCEW data to construct a measure of industry concentration described below called an "HHI Index." QCEW breaks the total wages and employment in a given county down by industry - broad categories such as "Natural resources and mining," "construction," and "education and health services" - including employment in the federal, state, and local government. We constructed average shares in each industry by summing the total wages in each industry from 2005-2012 (the common coverage period with Chetty Hendren Data and FBI crime data) and dividing by the total wages in a given county from 2005-2012 to get an average measure of wage share across these years.
 
-In terms of data coverage, crime statistics were the limiting factor. Since the Opportunity Insights data focuses on those that moved from 1996-2012, we needed to find some overlapping data for crime in this period. The best source availaible was from county level data from the Crime in the US Report. Data cleaning began by downloading yearly tables, stripping them of unnecessary headers and footnotes, concatenating different years, and harmonizing the names of counties to allow merging with our other data sources. Since the mobility indicators cover a range of years, we averaged crime for the overlapping period and converted it to a rate per 100,000 people to make it more comparable between counties with vastly different populations. There were a few counties that were significant outliers in terms of crime rates. We winsorized these observations to the 95th percentile. 
-
-Our resulting coverage was approximately 2400 counties where mobility, QCEW, and crime data were all indentified. This limitation is discussed below.
-
-# Difficulties
+In terms of data coverage, crime statistics were the limiting factor. Since the Opportunity Insights data focuses on those that moved from 1996-2012, we needed to find some overlapping data for crime in this period. The best source availaible was from county level data from the Crime in the US Report. Data cleaning began by downloading yearly tables, stripping them of unnecessary headers and footnotes, concatenating different years, and harmonizing the names of counties to allow merging with our other data sources. Since the mobility indicators cover a range of years, we averaged crime for the overlapping period and converted it to a rate per 100,000 people to make it more comparable between counties with vastly different populations. There were a few counties that were significant outliers in terms of crime rates. We winsorized these observations to the 95th percentile. Our resulting coverage was approximately 2400 counties where mobility, QCEW, and crime data were all indentified. 
 
 One difficulty we had resulted from the limited coverage in crime data. Since reporting is voluntary, there were entire states missing from our crime data. More importantly, some of these missing states, such as Massachusetts, are near the top of income and education distribution, so the resulting picture of the U.S. that we get may be missing important variation. 
 
 # Resulting Static Plots
 
-The first two static plots are geospatial visualizations of different crime  measures, as we wanted to visualize the discrepancies between regions. Maps for both property and violent crime show a significantly higher crime rates in the Southeast U.S. than in other regions. However, due to methodology behind the mobility data, there was much less visible variation with the exception of a few outliers. For this reason, we decided to not visualize mobility in our dashboard, but to have it as filter to explore other variables. Additionally when we add in mobility data, be loose a significant number of counties in the West and Midwest. The third graph shows Data coverage across both datasets. 
+The first two static plots are geospatial visualizations of different crime  measures, as we wanted to visualize the discrepancies between regions. Maps for both property and violent crime show a significantly higher crime rates in the Southeast U.S. than in other regions. However, due to methodology behind the mobility data, there was much less visible variation with the exception of a few outliers. For this reason, we decided to not visualize mobility in our dashboard, but to have it as filter to explore other variables. Additionally when we add in mobility data, we loose a significant number of counties in the West and Midwest. The third graph shows Data coverage across both datasets. 
 
 ```{python}
 #| echo: false
@@ -357,21 +390,25 @@ The first two static plots are geospatial visualizations of different crime  mea
 county_map = county_map[county_map['STATE'] != '02']
 county_map = county_map[county_map['STATE'] != '15']
 
-full_data = full_data[full_data["state_name"]!="Hawaii"]
+full_shape = full_shape[full_shape["state_name"]!="Hawaii"]
 
 #want to winsorize property crime to display better
 pctile95 = full_data['Property crime_rate'].quantile(0.95)
-full_data["Property crime_rate_winsor"] = np.where(full_data["Property crime_rate"] > pctile95, 
+full_shape["Property crime_rate_winsor"] = np.where(full_shape["Property crime_rate"] > pctile95, 
                                                      pctile95, 
-                                                     full_data["Property crime_rate"]) 
+                                                     full_shape["Property crime_rate"]) 
+pctile95 = full_shape['Violent crime_rate'].quantile(0.95)
+full_shape["Violent crime_rate_winsor"] = np.where(full_shape["Violent crime_rate"] > pctile95, 
+                                                     pctile95, 
+                                                     full_shape["Violent crime_rate"])
 
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+fig, ax = plt.subplots(figsize=(3, 4))
 
 county_map.plot(
     color='lightgrey',   
     ax=ax)
 
-full_data.plot(
+full_shape.plot(
     column='Property crime_rate_winsor',              
     linewidth=0.2,           
     edgecolor='0.5',          
@@ -388,27 +425,21 @@ cbar_ax.set_position([0.87, 0.25, 0.02, 0.5])
 
 ax.set_title('County-Level Property Crime Rates', fontsize=24)
 ax.axis('off')  
-
 ax.set_axis_off()
 plt.show()
 ```
 
-
 ```{python}
-#| echo: false
-pctile95 = full_data['Violent crime_rate'].quantile(0.95)
-full_data["Violent crime_rate_winsor"] = np.where(full_data["Violent crime_rate"] > pctile95, 
-                                                     pctile95, 
-                                                     full_data["Violent crime_rate"]) 
 
-# now for violent crime
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+#| echo: false
+
+fig, ax = plt.subplots(figsize=(3, 4))
 
 county_map.plot(
     color='lightgrey',   
     ax=ax)
 
-full_data.plot(
+full_shape.plot(
     column='Violent crime_rate_winsor',              
     linewidth=0.2,           
     edgecolor='0.5',          
@@ -430,10 +461,11 @@ ax.set_axis_off()
 plt.show()
 ```
 
+
 ```{python}
 #| echo: false
-full_sample = full_data.dropna(subset=['kr26_p25_coef'])
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+full_sample = full_shape.dropna(subset=['kr26_p25_coef'])
+fig, ax = plt.subplots(1, 1, figsize=(3, 4))
 
 county_map.plot(
     color='lightgrey',   
@@ -455,6 +487,33 @@ ax.axis('off')
 ax.set_axis_off()
 plt.show()
 
+```
+
+
+```{python}
+#| echo: false
+full_sample = full_shape.dropna(subset=['kr26_p25_coef'])
+fig, ax = plt.subplots(1, 1, figsize=(3, 4))
+
+county_map.plot(
+    color='lightgrey',   
+    ax=ax)
+
+full_sample.plot(
+    column='kr26_p25_coef',              
+    linewidth=0.2,           
+    edgecolor='0.5',          
+    legend=False,              
+    ax=ax,
+    zorder=2,
+    color="#40248c"
+    )
+
+ax.set_title('Data Coverage for Crime and Mobility', fontsize=24)
+ax.axis('off')  
+
+ax.set_axis_off()
+plt.show()
 ```
 
 We have a lot of data, so we want to aggregate it up to see patterns. To investigate whether housing prices (the largest expenditure for most families) affects mobility, we divide it into quintiles. Chetty-Hendren's data differentiates between two types of families: families in the 25th percentile of the national income distribution ("below-median income") and families in the 75th percentile of the national income distribution ("above-median income"). We thus take our two housing measures (Median House Price for 1. Above-Median and 2. Below-Median Income Families) and break them into quintiles. We then group by these quintiles and find the mean mobility measure in each quintile. We thus construct the following plot, with the quintiles for families in a given income level on a shared x-axis:
@@ -509,6 +568,7 @@ zero_line_y = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
 final_bar = (chart + zero_line_y).configure_view(clip=False)
 
 final_bar
+
 ```
 
 The results are striking. For both levels of income, mobility is concentrated almost entirely in the lowest-housing price quintile, and children who grew up in below-median income families tend to lose rank at age 26 when their housing is in the upper 3 quartiles. At almost every housing level, children who grew up in above-median income families tend to outperform low-income children in mobility (as measured by gain in the national income distribution).
@@ -517,7 +577,7 @@ We also want to investigate the relationship between the local labor market and 
  
 
 ```{python}
-
+#| echo: false
 vars = [
       'Gini (Standardized)',
       'Median House Price for Below-Median Income Families (Standardized)',
@@ -606,7 +666,7 @@ results_df = results_df.sort_values('Pct_Change', ascending=False)
 ```
 
 ```{python}
-
+#| echo: false
 #group indicators by category as suggested by Professor Shi
 
 ordered_vars = [
@@ -627,7 +687,7 @@ ordered_vars = [
 
 
 ```{python}
-
+#| echo: false
 #base chart - diamonds showing relationship
 points = alt.Chart(results_df).mark_point(
     color="#40248c",
@@ -679,6 +739,7 @@ zero_line_x = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(
 wage_chart = (errorbars + points + zero_line_x + corr_text).configure_view(clip=False)
 
 wage_chart
+
 ```
 
 The above shows how various crime, affordability, labor market, and social/demographic variables are related to industry concentration. To standardize, we plot how a 1 SD increase in a given measure changes wage dispersion as a percent increase or decrease. Thus, if a 1 SD increase of a given measure is associated with an increase of inverse HHI from 1 to 2, this corresponds to a 100% increase in wage dispersion (and would thus represent a doubling of the effective number of industries in a county). 
@@ -687,8 +748,8 @@ Our analysis favors spreading wages out among industries. Higher crime rates, po
 
 # Streamlit App
 
-Our Streamlit app contains two main components and a number of filters. First, it presents the user with a dropdown box with a number of indicators including crime statistics, HHI for industry concentration, and median housing prices for the 25th and 75th percentiles. Once the user selects an input, the left-hand side of the page presents a spatial representation of different variables, with a tooltip for users to expore county names and values for that indicator. 
+Our Streamlit app contains two main components and a number of filters. First, it presents the user with a dropdown box with a number of indicators including crime statistics, HHI for industry concentration, and median housing prices for the 25th and 75th percentiles. Once the user selects an input, the left-hand side of the page presents a spatial representation of different variables, with a tooltip for users to expore values for that indicator. 
 
-The right-hand side of the webpage presents the viewer with a histogram of the selected variable and prints the mean value on the graph. This column has an additional filter that allows users to generate a histogram for counties above or below the median value in terms of mobility. While the mobility coefficients are centered around zero, and don't provide that much information, seeing how housing prices, crime, and industry concentration vary between high and low mobility counties. As discussed above, housing prices show a very strong correlation with mobility. 
+The right-hand side of the webpage presents the viewer with a histogram of the selected variable and prints the mean value on the graph. This column has an additional filter that allows users to generate a histogram for counties above or below the median value in terms of mobility. While the mobility coefficients are centered around zero, and don't provide that much information, seeing how housing prices, crime, and industry concentration vary between high and low mobility counties is more interesting. As discussed above, housing prices show a very strong correlation with mobility. 
 
 
