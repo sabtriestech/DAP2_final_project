@@ -17,7 +17,7 @@ The original data sets can be found at the following links and we last accessed 
    - FBI Data on Crime comes from xls sheet from each year from the Crime in the U.S Report. Most years county-level data was table 10.
         -  As an example, the data for 2011 can be found Here: https://ucr.fbi.gov/crime-in-the-u.s/2011/crime-in-the-u.s.-2011/offenses-known-to-law-enforcement/offenses-known-to-law-enforcement
     
-Our streamlit app can be found here: https://andrew-and-sabrina-app.streamlit.app/ 
+Our streamlit app can be found here: https://andrew-and-sabrina-app.streamlit.app/. It will need to be woken up before viewing. 
 
 ## Project Structure
 ```
