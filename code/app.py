@@ -36,13 +36,17 @@ variable_choice = st.selectbox(
 #load and clean data
 @st.cache_data
 def load_data():
-    df = gpd.read_file(os.path.join(BASE_DIR, 'data/derived_data/Dashboard Data.csv'))
-    pctile95v = df['Violent crime_rate'].quantile(0.95)
-    df["Violent crime_rate_winsor"] = np.where(df["Violent crime_rate"] > pctile95v, 
+    df = gpd.read_file(os.path.join(BASE_DIR,"data/derived_data/Dashboard Data with Geography.shp"))
+    pctile95v = df['Violent cr'].quantile(0.95)
+    df["Violent crime_rate_winsor"] = np.where(df["Violent cr"] > pctile95v, 
                                                      pctile95v, 
-                                                     df["Violent crime_rate"]) 
-    df["HHI_winsor"] = np.where(df['Inverse HHI'] < 1, 1, df["Inverse HHI"])
-    pctile95hhi = df['Inverse HHI'].quantile(0.95)
+                                                     df["Violent cr"]) 
+    pctile95p = df['Property c'].quantile(0.95)
+    df["Property crime_rate_winsor"] = np.where(df["Property c"] > pctile95p, 
+                                                     pctile95p, 
+                                                     df["Property c"]) 
+    df["HHI_winsor"] = np.where(df['Inverse HH'] < 1, 1, df["Inverse HH"])
+    pctile95hhi = df['Inverse HH'].quantile(0.95)
     df["HHI_winsor"] = np.where(df["HHI_winsor"] > pctile95hhi, pctile95hhi, df["HHI_winsor"]) 
 
     return df
@@ -50,8 +54,8 @@ def load_data():
 df = load_data()
 
 #dictionary for selected columns:
-selected_column = {'Housing Prices for Low Earners':'Median House Price for Below-Median Income Families',
-                   'Housing Prices for High Earners': 'Median House Price for Above-Median Income Families',
+selected_column = {'Housing Prices for Low Earners':'Median Hou',
+                   'Housing Prices for High Earners': 'Median H_1',
                     'Property Crime': 'Property crime_rate_winsor',
                     'Violent Crime':'Violent crime_rate_winsor',
                     'HHI': 'HHI_winsor'}
@@ -112,9 +116,9 @@ with col2:
     filtered_df = df.copy()
 
     if under_50:
-        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] <= 0]
+        filtered_df = filtered_df[filtered_df['kr26_p25_c'] <= 0]
     elif over_50:
-        filtered_df = filtered_df[filtered_df['kr26_p25_coef'] >= 0]
+        filtered_df = filtered_df[filtered_df['kr26_p25_c'] >= 0]
 
     sample_df = filtered_df
 
