@@ -101,7 +101,7 @@ with col1:
         layers=[layer],
         initial_view_state=view_state,
         tooltip={
-            "html": "<b>County:</b> {County Name}<br/>Value:  {" + variable_column + "}"
+            "html": "<br/>Value:  {" + variable_column + "}"
         }
     )
 
