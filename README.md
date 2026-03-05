@@ -25,7 +25,6 @@ data/
   derived_data/                   # stores clean collapsed dataset used for streamlit app               
 code/
   our_preprocessing.py            # Harmonizes crime data and combines this with Chetty-Hendren data on mobility, QCEW data on industry concentration, and census shapefiles. 
-  crime_map.py                    # Plots maps for both violent and property crime.
 streamlit-app/
   app.py                          # Contains script to create Streamlit Dashboard.
 final_project.qmd                 # Our write-up
